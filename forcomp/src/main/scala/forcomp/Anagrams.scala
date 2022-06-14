@@ -35,10 +35,15 @@ object Anagrams extends AnagramsInterface:
    *
    *  Note: you must use `groupBy` to implement this method!
    */
-  def wordOccurrences(w: Word): Occurrences = ???
+  def wordOccurrences(w: Word): Occurrences =
+    w.toLowerCase
+      .groupBy(c => c)
+      .map(x => (x._1,x._2.length)).toList
+      .sortBy((char,_)=>char)
 
   /** Converts a sentence into its character occurrence list. */
-  def sentenceOccurrences(s: Sentence): Occurrences = ???
+  def sentenceOccurrences(s: Sentence): Occurrences =
+    wordOccurrences(s.mkString)
 
   /** The `dictionaryByOccurrences` is a `Map` from different occurrences to a sequence of all
    *  the words that have that occurrence count.
@@ -55,10 +60,10 @@ object Anagrams extends AnagramsInterface:
    *    List(('a', 1), ('e', 1), ('t', 1)) -> Seq("ate", "eat", "tea")
    *
    */
-  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = ???
+  lazy val dictionaryByOccurrences: Map[Occurrences, List[Word]] = dictionary.groupBy(w=>wordOccurrences(w))
 
   /** Returns all the anagrams of a given word. */
-  def wordAnagrams(word: Word): List[Word] = ???
+  def wordAnagrams(word: Word): List[Word] = dictionaryByOccurrences(wordOccurrences(word))
 
   /** Returns the list of all subsets of the occurrence list.
    *  This includes the occurrence itself, i.e. `List(('k', 1), ('o', 1))`
@@ -82,61 +87,83 @@ object Anagrams extends AnagramsInterface:
    *  Note that the order of the occurrence list subsets does not matter -- the subsets
    *  in the example above could have been displayed in some other order.
    */
-  def combinations(occurrences: Occurrences): List[Occurrences] = ???
+  def combinations(occurrences: Occurrences): List[Occurrences] =
+    occurrences.foldRight(List[Occurrences](Nil)){ case ((ch,tm), acc) =>
+      acc ++ ( for { comb <- acc; n <- 1 to tm } yield (ch, n) :: comb )
+     }
+
 
   /** Subtracts occurrence list `y` from occurrence list `x`.
    *
-   *  The precondition is that the occurrence list `y` is a subset of
-   *  the occurrence list `x` -- any character appearing in `y` must
-   *  appear in `x`, and its frequency in `y` must be smaller or equal
-   *  than its frequency in `x`.
+   * The precondition is that the occurrence list `y` is a subset of
+   * the occurrence list `x` -- any character appearing in `y` must
+   * appear in `x`, and its frequency in `y` must be smaller or equal
+   * than its frequency in `x`.
    *
-   *  Note: the resulting value is an occurrence - meaning it is sorted
-   *  and has no zero-entries.
+   * Note: the resulting value is an occurrence - meaning it is sorted
+   * and has no zero-entries.
    */
-  def subtract(x: Occurrences, y: Occurrences): Occurrences = ???
+  def subtract(x: Occurrences, y: Occurrences): Occurrences =
+    y match
+      case (c,freq)::tail if x.head._1 == c && x.head._2 > freq => (c, x.head._2 - freq) :: subtract(x.tail, tail)
+      case (c,_)::tail if x.head._1 == c =>subtract(x.tail,tail)
+      case _::_ => x.head::subtract(x.tail,y)
+      case Nil => x
 
   /** Returns a list of all anagram sentences of the given sentence.
    *
-   *  An anagram of a sentence is formed by taking the occurrences of all the characters of
-   *  all the words in the sentence, and producing all possible combinations of words with those characters,
-   *  such that the words have to be from the dictionary.
+   * An anagram of a sentence is formed by taking the occurrences of all the characters of
+   * all the words in the sentence, and producing all possible combinations of words with those characters,
+   * such that the words have to be from the dictionary.
    *
-   *  The number of words in the sentence and its anagrams does not have to correspond.
-   *  For example, the sentence `List("I", "love", "you")` is an anagram of the sentence `List("You", "olive")`.
+   * The number of words in the sentence and its anagrams does not have to correspond.
+   * For example, the sentence `List("I", "love", "you")` is an anagram of the sentence `List("You", "olive")`.
    *
-   *  Also, two sentences with the same words but in a different order are considered two different anagrams.
-   *  For example, sentences `List("You", "olive")` and `List("olive", "you")` are different anagrams of
-   *  `List("I", "love", "you")`.
+   * Also, two sentences with the same words but in a different order are considered two different anagrams.
+   * For example, sentences `List("You", "olive")` and `List("olive", "you")` are different anagrams of
+   * `List("I", "love", "you")`.
    *
-   *  Here is a full example of a sentence `List("Yes", "man")` and its anagrams for our dictionary:
+   * Here is a full example of a sentence `List("Yes", "man")` and its anagrams for our dictionary:
    *
-   *    List(
-   *      List(en, as, my),
-   *      List(en, my, as),
-   *      List(man, yes),
-   *      List(men, say),
-   *      List(as, en, my),
-   *      List(as, my, en),
-   *      List(sane, my),
-   *      List(Sean, my),
-   *      List(my, en, as),
-   *      List(my, as, en),
-   *      List(my, sane),
-   *      List(my, Sean),
-   *      List(say, men),
-   *      List(yes, man)
-   *    )
+   * List(
+   * List(en, as, my),
+   * List(en, my, as),
+   * List(man, yes),
+   * List(men, say),
+   * List(as, en, my),
+   * List(as, my, en),
+   * List(sane, my),
+   * List(Sean, my),
+   * List(my, en, as),
+   * List(my, as, en),
+   * List(my, sane),
+   * List(my, Sean),
+   * List(say, men),
+   * List(yes, man)
+   * )
    *
-   *  The different sentences do not have to be output in the order shown above - any order is fine as long as
-   *  all the anagrams are there. Every returned word has to exist in the dictionary.
+   * The different sentences do not have to be output in the order shown above - any order is fine as long as
+   * all the anagrams are there. Every returned word has to exist in the dictionary.
    *
-   *  Note: in case that the words of the sentence are in the dictionary, then the sentence is the anagram of itself,
-   *  so it has to be returned in this list.
+   * Note: in case that the words of the sentence are in the dictionary, then the sentence is the anagram of itself,
+   * so it has to be returned in this list.
    *
-   *  Note: There is only one anagram of an empty sentence.
+   * Note: There is only one anagram of an empty sentence.
    */
-  def sentenceAnagrams(sentence: Sentence): List[Sentence] = ???
+  def sentenceAnagrams(sentence: Sentence): List[Sentence] =
+    def _sentenceAnagrams(occs: Occurrences): List[Sentence] =
+      if (occs.isEmpty)
+        List(Nil)
+      else
+        val combs = combinations(occs)
+        for (
+          i <- combs if dictionaryByOccurrences.keySet(i);
+          j <- dictionaryByOccurrences(i);
+          s <- _sentenceAnagrams(subtract(occs, i))
+        ) yield { j :: s }
+
+    _sentenceAnagrams(sentenceOccurrences(sentence))
+
 
 object Dictionary:
   def loadDictionary: List[String] =
